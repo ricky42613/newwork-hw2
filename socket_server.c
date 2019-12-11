@@ -168,7 +168,7 @@ static void server_on_read(struct bufferevent* bev,void* arg){
 			write(target,"invite is rejected",19);
 		}
 	}
-	else if(strncmp("at:",buf,3)==0){
+	else if(strstr(buf,"win")!=NULL||strncmp("at:",buf,3)==0){
 		int b_id;
 		if(fd == b_info[0][2]||fd == b_info[0][3]){
 			b_id = 0;
@@ -199,6 +199,45 @@ static void server_on_read(struct bufferevent* bev,void* arg){
 			}
 		}
 
+	}
+	else if(strncmp(buf,"all:",4)==0){
+		int str_len = strlen(buf),flag=0;
+		char *ptr = buf;
+		buf[str_len-1] = '\0'; 
+		ptr=ptr+4;
+		for(int i=0;i<4;i++){
+			if(cli_id[i]==fd){
+				flag = i;
+			}
+		}
+		printf("%s\n",cli_acn[flag]);
+		char msg[1024]="msg:";
+		strcat(msg,cli_acn[flag]);
+		strcat(msg,":\0");
+		strcat(msg,ptr);
+		for(int i=0;i<4;i++){
+			if(cli_id[i] != fd && cli_id[i] != -1){
+				write(cli_id[i],msg,strlen(msg));
+			}
+		}
+	}
+	if(strncmp(buf,"pm",2)==0){
+		char name[1024]={0},msg[1024]="(pm)",content[1024]={0},*ptr=buf;
+		int name_len = 0,idx1,idx2,target;
+		sscanf(ptr+3,"%s%s",name,content);
+		for(int i=0;i<4;i++){
+			if(strcmp(name,cli_acn[i])==0){
+				target = cli_id[i];
+				idx1 = i;
+			}
+			if(fd == cli_id[i]){
+				idx2 = i;
+			}
+		}
+		strcat(msg,cli_acn[idx2]);
+		strcat(msg,":\0");
+		strcat(msg,content);
+		write(target,msg,strlen(msg));
 	}
 	else if(strncmp(buf,"logout",6)==0){
 		for(int i=0;i<4;i++){

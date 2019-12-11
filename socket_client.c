@@ -34,6 +34,7 @@ int player2 = 0;
 int board[3][3]={{0,0,0},{0,0,0},{0,0,0}};
 int chi_cnt = 0;
 int turn = 0; //1:ok 2:not
+int mute_all = 0;
 /*事件处理回调函数*/
 int check_table[8][3] ={{1,2,3},{1,4,7},{1,5,9},{2,5,8},{3,5,7},{3,6,9},{4,5,6},{7,8,9}};
 int check_win(int a[3][3]){
@@ -124,6 +125,29 @@ void read_cb(struct bufferevent *bev, void *ctx)
 		str[8] = '\0';
 		strcat(str,ptr);
 		bufferevent_write(bev,str,strlen(str));	 
+	}
+	else if(strncmp(buf,"msg:",4)==0){
+		if(!mute_all){
+			char *ptr = buf;
+			ptr = ptr+4;
+			printf("%s\n",ptr);
+		}
+	}
+	else if(strncmp("(pm)",buf,4)==0&&mute_all==0){
+		if(!mute_all)
+			printf("%s\n",buf);
+	}
+	else if(strstr(buf,"win")!=NULL){
+		printf("you win!\nleave game\n");
+		player2 = 0;
+		status = 0;
+		turn = 0;
+		for(int i=0;i<3;i++){
+			for(int j=0;j<3;j++){ 
+				board[i][j] = 0;
+			}
+		}
+		chi_cnt = 0;
 	}
 	else if(strncmp(buf,"at:",3)==0){
 		char *ptr = buf+7;
@@ -227,7 +251,7 @@ void cmd_msg_cb(int fd, short events, void *arg)
 	struct bufferevent* bev = (struct bufferevent*)arg;
 
 	msg[ret] = '\0';
-	if(strncmp(msg,"at:",3)!=0&&status!=0){
+	if(strcmp(msg,"ff\n")!=0&&strncmp(msg,"at:",3)!=0&&status!=0){
 		printf("you are in the game!\n");
 		return;
 	}
@@ -282,7 +306,7 @@ void cmd_msg_cb(int fd, short events, void *arg)
 			}
 			else if(chi_cnt == 9){
 				if(msg[strlen(msg)-1] == '\n')
-                                	msg[strlen(msg)-1] = '\0';
+					msg[strlen(msg)-1] = '\0';
 				flag=1;
 				print_board(board);
 				printf("no one win the game!\n");
@@ -301,6 +325,29 @@ void cmd_msg_cb(int fd, short events, void *arg)
 		}
 		if(flag==0)
 			print_board(board);
+	}
+	if(strcmp("mute\n",msg)==0){
+		mute_all = 1;
+	}
+	if(strcmp("unmute\n",msg)==0){
+		mute_all = 0;
+	}
+	if(strcmp("ff\n",msg)==0){
+		if(status){
+			printf("you lose!\n");
+			strcat(msg,"you win the game!over\n");
+			//printf("%s\n",msg);
+			player2 = 0;
+			status = 0;
+			turn = 0;
+			for(int i=0;i<3;i++){
+				for(int j=0;j<3;j++){
+					board[i][j] = 0;
+				}
+			}
+			chi_cnt = 0;
+
+		}
 	}
 	//把终端消息发给服务器段
 	bufferevent_write(bev,msg,strlen(msg));
